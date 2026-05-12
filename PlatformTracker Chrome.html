@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08);
+    --border-bright: rgba(255,255,255,0.18);
+    --text: #e8e8f0;
+    --text-dim: rgba(232,232,240,0.45);
+    --text-muted: rgba(232,232,240,0.25);
+    --yellow: #f5c842;
+    --yellow-glow: rgba(245,200,66,0.18);
+    --green: #4ade80;
+    --green-glow: rgba(74,222,128,0.18);
+    --gray: rgba(255,255,255,0.12);
+    --accent: #6366f1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── NAV ── */
+  #nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.95);
+    position: sticky; top: 0; z-index: 100;
+    height: 48px;
+  }
+  #nav .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    margin-right: auto;
+    opacity: 0.7;
+  }
+  #nav button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: 4px;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  #nav button:hover { color: var(--text); }
+  #nav button.active {
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; padding: 20px; }
+  .view.active { display: block; }
+
+  /* ── SIDE PANEL VIEW ── */
+  #panel-view {
+    max-width: 420px;
+    margin: 0 auto;
+  }
+
+  .add-task-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .add-task-box input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .add-task-box input:focus { border-color: var(--border-bright); }
+  .add-task-box input::placeholder { color: var(--text-muted); }
+  .add-task-box button {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 18px;
+    width: 36px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .add-task-box button:hover { opacity: 0.85; }
+
+  /* Task card */
+  .task-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+  .task-card:hover { border-color: var(--border-bright); }
+  .task-card.completed-card {
+    border-color: transparent;
+    opacity: 0.5;
+  }
+
+  .task-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .task-name {
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+    color: var(--text);
+  }
+  .task-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  /* Platform chips */
+  .platforms-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-bright);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    background: transparent;
+  }
+  .chip:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+  .chip.in-progress {
+    background: var(--yellow-glow);
+    border-color: var(--yellow);
+    color: var(--yellow);
+  }
+  .chip.reviewed {
+    background: var(--green-glow);
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .chip.done {
+    background: var(--gray);
+    border-color: transparent;
+    color: var(--text-muted);
+  }
+
+  /* Task actions */
+  .task-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .btn-sm {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-bright);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-sm:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+  .btn-sm.review-btn:hover { color: var(--green); border-color: var(--green); }
+  .btn-sm.complete-btn:hover { color: #888; border-color: #555; }
+  .btn-sm.delete-btn:hover { color: #f87171; border-color: #f87171; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+  }
+
+  /* Section label */
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    margin-top: 20px;
+  }
+  .section-label:first-of-type { margin-top: 0; }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── DASHBOARD VIEW ── */
+  #dash-view { max-width: 900px; margin: 0 auto; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  /* Platform summary */
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .plat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .plat-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .plat-bar-bg {
+    height: 4px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .plat-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--green);
+    transition: width 0.4s ease;
+  }
+  .plat-pct {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* History */
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0.6;
+  }
+  .history-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .history-name {
+    font-size: 13px;
+    color: var(--text-dim);
+    flex: 1;
+  }
+  .history-chips {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .history-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--gray);
+    color: var(--text-muted);
+  }
+
+  /* dash task list */
+  .dash-task-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+  }
+  .dash-task-name { font-size: 13px; color: var(--text); }
+  .dash-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dash-chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .dash-chip.idle { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  .dash-chip.in-progress { background: var(--yellow-glow); color: var(--yellow); }
+  .dash-chip.reviewed { background: var(--green-glow); color: var(--green); }
+  .dash-chip.done { background: var(--gray); color: var(--text-muted); }
+
+  /* ── TRANSPARENT WINDOW MODE ── */
+  body.window-mode {
+    background: rgba(8,8,14,0.82);
+  }
+  body.window-mode #nav {
+    background: rgba(8,8,14,0.88);
+    -webkit-app-region: drag;
+  }
+  body.window-mode #nav button {
+    -webkit-app-region: no-drag;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  /* confirm dialog */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .dialog {
+    background: #12121a;
+    border: 1px solid var(--border-bright);
+    border-radius: 10px;
+    padding: 24px;
+    max-width: 320px;
+    width: 90%;
+    text-align: center;
+  }
+  .dialog h3 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .dialog p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+  .dialog-btns { display: flex; gap: 8px; justify-content: center; }
+  .dialog-btns button {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 7px 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid var(--border-bright);
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+  .dialog-btns button:hover { color: var(--text); }
+  .dialog-btns button.confirm { border-color: var(--green); color: var(--green); }
+  .dialog-btns button.confirm:hover { background: var(--green-glow); }
+  .dialog-btns button.danger { border-color: #f87171; color: #f87171; }
+  .dialog-btns button.danger:hover { background: rgba(248,113,113,0.1); }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: #12121a;
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="nav">
+  <span class="logo">◈ PLATFORMS</span>
+  <button onclick="switchView('panel')" id="btn-panel" class="active">Panel</button>
+  <button onclick="switchView('dash')" id="btn-dash">Dashboard</button>
+</div>
+
+<!-- ── PANEL VIEW ── -->
+<div id="panel-view" class="view active">
+  <div class="add-task-box">
+    <input type="text" id="new-task-input" placeholder="New task…" onkeydown="if(event.key==='Enter')addTask()"/>
+    <button onclick="addTask()">+</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--border-bright)"></div>Idle</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>In Progress</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Reviewed</div>
+    <div class="legend-item"><div class="legend-dot" style="background:rgba(255,255,255,0.2)"></div>Done</div>
+  </div>
+
+  <div id="tasks-container"></div>
+</div>
+
+<!-- ── DASHBOARD VIEW ── -->
+<div id="dash-view" class="view">
+  <div class="stats-row" id="stats-row"></div>
+
+  <div class="section-label">Platform Completion</div>
+  <div class="platform-grid" id="platform-grid"></div>
+
+  <div class="section-label">Active Tasks</div>
+  <div id="dash-active"></div>
+
+  <div class="section-label">History</div>
+  <div id="dash-history"></div>
+</div>
+
+<!-- Confirm dialog -->
+<div class="overlay" id="overlay">
+  <div class="dialog">
+    <h3 id="dialog-title">Confirm</h3>
+    <p id="dialog-msg"></p>
+    <div class="dialog-btns" id="dialog-btns"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const PLATFORMS = ['T','D','K','J','W','V','B','L','QR','En','Qlub'];
+const PLATFORM_NAMES = {T:'Talabat',D:'Deliveroo',K:'Keeta',J:'Jahez',W:'Wally',V:'Vero',B:'Bolt',L:'Lemon',QR:'QR Pay',En:'Entertainer',Qlub:'Qlub'};
+
+// State
+let tasks = JSON.parse(localStorage.getItem('pt_tasks') || '[]');
+let history = JSON.parse(localStorage.getItem('pt_history') || '[]');
+
+function save() {
+  localStorage.setItem('pt_tasks', JSON.stringify(tasks));
+  localStorage.setItem('pt_history', JSON.stringify(history));
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function showDialog(title, msg, buttons) {
+  document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-msg').textContent = msg;
+  const btns = document.getElementById('dialog-btns');
+  btns.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.textContent = b.label;
+    el.className = b.cls || '';
+    el.onclick = () => { hideDialog(); b.action(); };
+    btns.appendChild(el);
+  });
+  document.getElementById('overlay').classList.add('show');
+}
+function hideDialog() {
+  document.getElementById('overlay').classList.remove('show');
+}
+document.getElementById('overlay').addEventListener('click', e => { if(e.target === e.currentTarget) hideDialog(); });
+
+function addTask() {
+  const inp = document.getElementById('new-task-input');
+  const name = inp.value.trim();
+  if(!name) return;
+  tasks.push({
+    id: Date.now(),
+    name,
+    created: new Date().toISOString(),
+    platforms: Object.fromEntries(PLATFORMS.map(p => [p, 'idle']))
+  });
+  save();
+  inp.value = '';
+  renderPanel();
+  toast('Task added');
+}
+
+function cycleChip(taskId, platform) {
+  const task = tasks.find(t => t.id === taskId);
+  if(!task) return;
+  const states = ['idle','in-progress','reviewed','done'];
+  const cur = task.platforms[platform];
+  const next = states[(states.indexOf(cur) + 1) % states.length];
+  task.platforms[platform] = next;
+  save();
+  renderPanel();
+  if(getCurrentView() === 'dash') renderDash();
+}
+
+function markReview(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if(!task) return;
+  // All in-progress → reviewed
+  PLATFORMS.forEach(p => {
+    if(task.platforms[p] === 'in-progress') task.platforms[p] = 'reviewed';
+  });
+  save();
+  renderPanel();
+  toast('Marked for review');
+}
+
+function completeTask(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  if(!task) return;
+  showDialog(
+    'Complete Task',
+    `Move "${task.name}" to history?`,
+    [
+      { label: 'Skip Review & Complete', cls: 'confirm', action: () => doComplete(taskId, false) },
+      { label: 'Review then Complete', cls: 'confirm', action: () => doComplete(taskId, true) },
+      { label: 'Cancel', action: () => {} }
+    ]
+  );
+}
+
+function doComplete(taskId, review) {
+  const idx = tasks.findIndex(t => t.id === taskId);
+  if(idx === -1) return;
+  const task = tasks[idx];
+  if(review) {
+    PLATFORMS.forEach(p => { if(task.platforms[p] !== 'idle') task.platforms[p] = 'reviewed'; });
+  }
+  history.unshift({ ...task, completedAt: new Date().toISOString() });
+  tasks.splice(idx, 1);
+  save();
+  renderPanel();
+  if(getCurrentView() === 'dash') renderDash();
+  toast('Moved to history ✓');
+}
+
+function deleteTask(taskId) {
+  const task = tasks.find(t => t.id === taskId);
+  showDialog('Delete Task', `Delete "${task.name}"? This cannot be undone.`, [
+    { label: 'Delete', cls: 'danger', action: () => {
+      tasks = tasks.filter(t => t.id !== taskId);
+      save(); renderPanel();
+      toast('Deleted');
+    }},
+    { label: 'Cancel', action: () => {} }
+  ]);
+}
+
+function renderPanel() {
+  const c = document.getElementById('tasks-container');
+  if(tasks.length === 0) {
+    c.innerHTML = '<div class="empty">NO ACTIVE TASKS<br>Add one above ↑</div>';
+    return;
+  }
+  c.innerHTML = '';
+
+  // Sort: tasks with any in-progress first
+  const sorted = [...tasks].sort((a,b) => {
+    const aActive = Object.values(a.platforms).some(s => s === 'in-progress') ? -1 : 0;
+    const bActive = Object.values(b.platforms).some(s => s === 'in-progress') ? -1 : 0;
+    return aActive - bActive;
+  });
+
+  sorted.forEach(task => {
+    const card = document.createElement('div');
+    card.className = 'task-card';
+
+    const top = `<div class="task-top"><span class="task-name">${escHtml(task.name)}</span></div>`;
+    const meta = `<div class="task-meta">${formatDate(task.created)}</div>`;
+
+    const chips = PLATFORMS.map(p => {
+      const state = task.platforms[p];
+      return `<span class="chip ${state}" onclick="cycleChip(${task.id}, '${p}')" title="${PLATFORM_NAMES[p]||p}">${p}</span>`;
+    }).join('');
+
+    const actions = `
+      <div class="task-actions">
+        <button class="btn-sm review-btn" onclick="markReview(${task.id})">↻ Review</button>
+        <button class="btn-sm complete-btn" onclick="completeTask(${task.id})">✓ Complete</button>
+        <button class="btn-sm delete-btn" onclick="deleteTask(${task.id})">✕</button>
+      </div>`;
+
+    card.innerHTML = top + meta + `<div class="platforms-row">${chips}</div>` + actions;
+    c.appendChild(card);
+  });
+}
+
+function renderDash() {
+  // Stats
+  const statsEl = document.getElementById('stats-row');
+  const total = tasks.length + history.length;
+  const active = tasks.length;
+  const done = history.length;
+  const inProgress = tasks.filter(t => Object.values(t.platforms).some(s => s === 'in-progress')).length;
+
+  statsEl.innerHTML = [
+    {n: total, l: 'Total Tasks'},
+    {n: active, l: 'Active'},
+    {n: inProgress, l: 'In Progress'},
+    {n: done, l: 'Completed'},
+  ].map(s => `<div class="stat-box"><div class="stat-num">${s.n}</div><div class="stat-label">${s.l}</div></div>`).join('');
+
+  // Platform grid
+  const pgEl = document.getElementById('platform-grid');
+  pgEl.innerHTML = PLATFORMS.map(p => {
+    const allPlatStates = tasks.map(t => t.platforms[p]);
+    const histStates = history.map(t => t.platforms[p]);
+    const totalP = allPlatStates.length + histStates.length;
+    const doneP = allPlatStates.filter(s => s === 'done' || s === 'reviewed').length + histStates.length;
+    const pct = totalP ? Math.round(doneP / totalP * 100) : 0;
+    return `<div class="plat-card">
+      <div class="plat-name">${p}</div>
+      <div class="plat-bar-bg"><div class="plat-bar-fill" style="width:${pct}%"></div></div>
+      <div class="plat-pct">${pct}% done</div>
+    </div>`;
+  }).join('');
+
+  // Active tasks
+  const activeEl = document.getElementById('dash-active');
+  if(tasks.length === 0) {
+    activeEl.innerHTML = '<div class="empty">No active tasks</div>';
+  } else {
+    activeEl.innerHTML = tasks.map(task => {
+      const chips = PLATFORMS.map(p => {
+        const s = task.platforms[p];
+        return `<span class="dash-chip ${s}">${p}</span>`;
+      }).join('');
+      return `<div class="dash-task-row">
+        <div class="dash-task-name">${escHtml(task.name)}</div>
+        <div class="dash-chips">${chips}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // History
+  const histEl = document.getElementById('dash-history');
+  if(history.length === 0) {
+    histEl.innerHTML = '<div class="empty">No completed tasks yet</div>';
+  } else {
+    histEl.innerHTML = history.map(task => {
+      const chips = PLATFORMS.map(p => {
+        const s = task.platforms[p];
+        if(s === 'idle') return '';
+        return `<span class="history-chip">${p}</span>`;
+      }).join('');
+      return `<div class="history-item">
+        <div class="history-date">${formatDate(task.completedAt)}</div>
+        <div class="history-name">${escHtml(task.name)}</div>
+        <div class="history-chips">${chips}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function switchView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById(v + '-view').classList.add('active');
+  document.getElementById('btn-' + v).classList.add('active');
+  if(v === 'dash') renderDash();
+}
+
+function getCurrentView() {
+  if(document.getElementById('dash-view').classList.contains('active')) return 'dash';
+  return 'panel';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatDate(iso) {
+  if(!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+// Init
+renderPanel();
+</script>
+</body>
+</html>
